@@ -1,0 +1,102 @@
+<?php
+
+/**
+ * @file
+ * Contains automated_testing_kit.module.
+ */
+
+/**
+ * Implements hook_preprocess_HOOK().
+ *
+ * Provides nids, vids and tids.
+ */
+function automated_testing_kit_preprocess_html(&$variables) {
+  $node = menu_get_object();
+
+  if ($node && $node->entity_type == 'node') {
+    $variables['attributes']['class'][] = 'node-type-' . $node->type;
+    $variables['attributes']['class'][] = 'node-nid-' . $node->nid;
+  }
+
+  // Retrieve the term object (flexible approach)
+  // $path = drupal_get_path('theme', '');
+  // $path_args = explode('/', $path);
+
+  // if (arg(0) == 'taxonomy' && arg(1) == 'term' && is_numeric(arg(2))) {
+  //   $tid = arg(2);
+  //   $term = taxonomy_term_load($tid);
+
+  //   if ($term) {
+  //     $variables['attributes']['class'][] = 'term-vid-' . $term->vid;
+  //     $variables['attributes']['class'][] = 'term-tid-' . $term->tid;
+  //   }
+  // }
+}
+
+/**
+ * Implements hook_menu().
+ */
+function automated_testing_kit_menu() {
+  $items = array();
+
+  $items['admin/config/development/automated_testing_kit'] = array(
+    'title' => 'Automated Testing Kit Configuration',
+    'description' => 'Configuration options for the Automated Testing Kit module.',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('automated_testing_kit_configuration_form'),
+    'access arguments' => array('administer site configuration'),
+    'type' => MENU_NORMAL_ITEM,
+    'weight' => -10,
+  );
+
+  return $items;
+}
+
+/**
+ * Implements hook_preprocess_image().
+ *
+ * Provides media object ID.
+ */
+function automated_testing_kit_preprocess_image(&$variables) {
+  if (isset($variables['uri'])) {
+    // Extract filename and clean up ?itok
+    $filename = basename(parse_url($variables['uri'], PHP_URL_PATH));
+
+    // Load file object
+    $file = file_load_multiple(['filename' => $filename], NULL);
+
+    if (!empty($file)) {
+      $file = reset($file);  // Get the first file
+      $fileId = $file->fid;
+
+      // Load media entity using file_usage_get_objects()
+      $mediaEntities = file_usage_get_objects($file, 'file', 'field_media_image');
+
+      if (!empty($mediaEntities)) {
+        $mediaObj = reset($mediaEntities);
+        $mediaId = $mediaObj->mid;
+
+        if ($mediaObj) {
+          // Add media ID to attributes
+          $variables['attributes']['data-media-id'] = $mediaId;
+        }
+      }
+    }
+  }
+}
+
+/**
+ * Implements hook_help().
+ */
+function automated_testing_kit_help($path, $arg) {
+  switch ($path) {
+    // Main module help for the "Help" tab.
+    case 'admin/help#automated_testing_kit':
+      $output = '<h3>' . t('About') . '</h3>';
+      $output .= '<p>' . t('Contains useful functions for end-to-end automated testing. See https://www.drupal.org/project/automated_testing_kit') . '</p>';
+      return $output;
+
+    default:
+      return '';
+  }
+}

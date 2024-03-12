@@ -1,0 +1,23 @@
+{
+  "name": "drupal/automated_testing_kit_d7",
+  "description": "Provides tests and functions useful for automated testing for D7 sites.",
+  "type": "drupal-module",
+  "license": "GPL-2.0-or-later",
+  "homepage": "https://drupal.org/project/automated_testing_kit_d7",
+  "authors": [
+    {
+      "name": "André Angelantoni",
+      "homepage": "https://www.drupal.org/u/aangel",
+      "role": "Maintainer"
+    }
+  ],
+  "support": {
+    "issues": "https://www.drupal.org/project/issues/automated_testing_kit_d7",
+    "slack": "https://drupal.slack.com/archives/C05DSFVJMD1",
+    "source": "https://git.drupalcode.org/project/automated_testing_kit_d7"
+  },
+  "prefer-stable": true,
+  "require": {
+    "php": ">=7.4"
+  }
+}

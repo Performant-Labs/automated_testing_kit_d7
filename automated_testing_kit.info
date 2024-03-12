@@ -1,0 +1,8 @@
+name = Automated Testing Kit D7
+description = Provides tests and functions useful for automated testing.
+package = Testing
+project = "automated_testing_kit_d7"
+core = 7.x
+configure = /admin/config/development/automated_testing_kit
+version = "1.0.0"
+dependencies[] = system (>7.96)

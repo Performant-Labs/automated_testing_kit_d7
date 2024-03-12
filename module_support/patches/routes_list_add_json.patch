@@ -1,0 +1,48 @@
+diff --git a/routes_list.routing.yml b/routes_list.routing.yml
+index ae2a589..c9f50fd 100644
+--- a/routes_list.routing.yml
++++ b/routes_list.routing.yml
+@@ -7,3 +7,11 @@ routes_list.report:
+     _permission: 'access routes list'
+   options:
+     _admin_route: TRUE
++
++routes_list.jsonreport:
++  path: '/admin/reports/routes-list-json'
++  defaults:
++    _controller: '\Drupal\routes_list\Controller\RoutesListController::reportjson'
++    _title: 'Routes list json'
++  requirements:
++    _permission: 'access routes list'
+\ No newline at end of file
+diff --git a/src/Controller/RoutesListController.php b/src/Controller/RoutesListController.php
+index 8100e80..7de7454 100644
+--- a/src/Controller/RoutesListController.php
++++ b/src/Controller/RoutesListController.php
+@@ -9,6 +9,7 @@ use Drupal\user\PermissionHandlerInterface;
+ use Drupal\Core\Extension\ModuleHandlerInterface;
+ use Drupal\Core\Entity\EntityTypeManagerInterface;
+ use Drupal\Core\Link;
++use Symfony\Component\HttpFoundation\JsonResponse;
+
+ /**
+  * Basic controller for routes list report page.
+@@ -259,4 +260,17 @@ class RoutesListController extends ControllerBase {
+     return $build;
+   }
+
++  /**
++   * Returns a page with routes overview.
++   *
++   * @return array
++   *   A build array with routes overview table.
++   */
++  public function reportjson() {
++    return new JsonResponse([
++      'data' => $this->report(),
++      'method' => 'GET',
++    ]);
++  }
++
+ }
+

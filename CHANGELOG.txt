@@ -1,0 +1,14 @@
+Automated Testing Kit D7 1.0.0, 2024-03-11
+---------------------------------------------
+Changes since Automated Testing Kit D7 1.0.0:
+- Converted Drupal code to be D7 compatible.
+
+
+Automated Testing Kit D7 1.0.x, 2024-03-11
+---------------------------------------------
+Changes since Automated Testing Kit 1.2.0:
+- Make new dev release to prepare for D7 conversion.
+
+== FORKED FROM D10+ VERSION 1.2.0 ==
+
+See CHANGELOG.txt from Automated Testing Kit project.
