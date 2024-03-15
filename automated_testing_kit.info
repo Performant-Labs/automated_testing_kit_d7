@@ -4,5 +4,5 @@ package = Testing
 project = "automated_testing_kit_d7"
 core = 7.x
 configure = /admin/config/development/automated_testing_kit
-version = "1.0.0"
+version = "1.0.0-beta1"
 dependencies[] = system (>7.96)
