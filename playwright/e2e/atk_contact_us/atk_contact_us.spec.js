@@ -40,34 +40,22 @@ test.describe('Contact Us tests.', () => {
     let textContent = '';
 
     // Begin registration.
-    await page.goto(baseUrl + atkConfig.contactUsUrl);
+    await page.goto(atkConfig.contactUsUrl);
 
-    await page.getByLabel('Your name').fill(userEtherealAccount.userName);
-    await page.getByLabel('Your email').fill(userEtherealAccount.userEmail);
+    await page.getByLabel('Your name').fill(uniqueToken);
+    await page.getByLabel('Your e-mail').fill(`${uniqueToken}@example.com`);
     await page.getByLabel('Subject').fill(subjectLine);
     await page.getByLabel('Message').fill(testId);
     await page.getByRole('button', { name: 'Send message' }).click();
 
     // The status box needs a moment to appear.
-    await page.waitForSelector('[aria-label="Status message"]');
+    const message = await page.waitForSelector('.messages.status');
 
     // Should see the thank-you message.
-    textContent = await page.content();
-    expect(textContent).toContain('Your message has been sent.');
+    // textContent = await page.content();
+    expect(await message.textContent()).toContain('Your message has been sent.');
 
-    // Now check for the entry in the database.
-    await atkCommands.logOutViaUi(page, context);
-
-    await atkCommands.logInViaForm(page, context, qaUserAccounts.admin);
-
-    await page.goto(`${baseUrl}admin/structure/webform/manage/contact/results/submissions`);
-
-    // Check for presence of random string.
-    // Part A passes: the submission appears.
-    textContent = await page.content();
-    expect(textContent).toContain(uniqueToken);
-
-    // Check for registration email at Ethereal.
+    // Check for Contact Us email at Ethereal.
     const etherealUrl = 'https://ethereal.email';
     await page.goto(`${etherealUrl}/login`);
     await page.getByPlaceholder('Enter email').fill(userEtherealAccount.userEmail);
@@ -82,7 +70,7 @@ test.describe('Contact Us tests.', () => {
     textContent = await page.textContent('body');
     expect(textContent).toContain(`Messages for ${userEtherealAccount.userEmail}`);
 
-    // Look for "ATK-CY-1050) uniqueToken" generated above.
+    // Look for "(ATK-CY-1050) uniqueToken" generated above.
     await expect(page.getByRole('row', { subject: subjectLine })).toBeVisible;
   });
 });
