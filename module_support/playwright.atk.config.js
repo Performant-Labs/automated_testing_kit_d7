@@ -5,7 +5,7 @@ module.exports = {
   operatingMode: "native",
   drushCmd: "drush",
   articleAddUrl: 'node/add/article',
-  contactUsUrl: "form/contact",
+  contactUsUrl: "contact",
   logInUrl: "user/login",
   logOutUrl: "user/logout",
   imageAddUrl: 'media/add/image',
