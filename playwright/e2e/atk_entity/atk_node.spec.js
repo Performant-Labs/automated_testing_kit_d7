@@ -14,17 +14,70 @@ import * as atkUtilities from '../support/atk_utilities';
 // Set up Playwright.
 const { test, expect } = require('@playwright/test');
 
-import playwrightConfig from '../../playwright.config';
-
-const baseUrl = playwrightConfig.use.baseURL;
-
 // Import ATK configuration.
 import atkConfig from '../../playwright.atk.config';
 
 // Holds standard accounts that use user accounts created
 // by QA Accounts. QA Accounts are created when the QA
 // Accounts module is enabled.
-import qaUserAccounts from '../data/qaUsers.json';
+import qaUsers from '../data/qaUsers.json';
+
+class EditorPage {
+  constructor(page) {
+    this.page = page;
+    this.titleField = page.locator('#edit-title');
+    this.textEditor = page.locator('.text-full');
+    this.saveButton = page.getByRole('button', { name: 'Save' });
+    this.imageFileField = page.locator('#edit-field-image .form-file');
+    this.imageAltField = page.locator('#edit-field-image .form-text');
+    this.imageSubmitButton = page.locator('#edit-field-image .form-submit');
+  }
+
+  async fillTitle(title) {
+    await this.titleField.fill(title);
+  }
+
+  async fillText(text) {
+    await this.textEditor.fill(text);
+  }
+
+  async uploadImage(filepath, alt) {
+    const [fileChooser] = await Promise.all([
+        this.page.waitForEvent('filechooser'),
+        this.imageFileField.click()
+    ]);
+    await fileChooser.setFiles(filepath);
+    await this.imageSubmitButton.click();
+    await this.imageAltField.fill(alt);
+  }
+
+  async save() {
+    await this.saveButton.click();
+  }
+}
+
+class ContentPage {
+  constructor(page) {
+    this.page = page;
+    this.textContainer = page.locator('.field-name-body');
+  }
+
+  async expectText(text) {
+    await expect(await this.textContainer.textContent()).toContain(text);
+  }
+
+  async getNid() {
+    // Extract the nid placed in the body class by this hook:
+    // automated_testing_kit.module:automated_testing_kit_preprocess_html().
+    // Wait for the page to load
+    await this.page.waitForLoadState('domcontentloaded');
+    const bodyClass = await this.page.evaluate(() => document.body.className);
+    const match = bodyClass.match(/page-node-(\d+)/);
+
+    // Get the nid.
+    return parseInt(match[1], 10);
+  }
+}
 
 test.describe('Node tests.', () => {
   //
@@ -37,35 +90,25 @@ test.describe('Node tests.', () => {
     // Log in with the administrator account.
     // You should change this to an account other than the administrator,
     // which has all rights.
-    await atkCommands.logInViaForm(page, context, qaUserAccounts.admin);
+    await atkCommands.logInViaForm(page, context, qaUsers.admin);
 
     //
     // Add a page.
     //
-    await page.goto(baseUrl + atkConfig.pageAddUrl);
+    await page.goto(atkConfig.pageAddUrl);
+    const editorPage = new EditorPage(page);
 
     // Fill in as many fields as you need here.
-    const titleTextField = await page.locator('input[name="title[0][value]"]');
-    await titleTextField.fill(`${testId}: A Title`);
-    let ckEditor = await page.locator('[aria-label="Editor editing area: main"]');
-    await ckEditor.fill(bodyText);
-    await page.getByRole('button', { name: 'Save' }).click();
+    await editorPage.fillTitle(`${testId}: A Title`);
+    await editorPage.fillText(bodyText);
+    await editorPage.save();
 
     //
     // Confirm content appears.
     //
-    let divContainer = await page.textContent('.text-content');
-    await expect(divContainer).toContain(bodyText);
-
-    // Extract the nid placed in the body class by this hook:
-    // automated_testing_kit.module:automated_testing_kit_preprocess_html().
-    // Wait for the page to load
-    await page.waitForLoadState('domcontentloaded');
-    const bodyClass = await page.evaluate(() => document.body.className);
-    const match = bodyClass.match(/node-nid-(\d+)/);
-
-    // Get the nid.
-    const nid = parseInt(match[1], 10);
+    const contentPage = new ContentPage(page);
+    await contentPage.expectText(bodyText);
+    const nid = await contentPage.getNid();
 
     //
     // Update the node.
@@ -74,20 +117,17 @@ test.describe('Node tests.', () => {
 
     bodyText = 'Ut eget ex vitae nibh dapibus vulputate ut id lacus.';
 
-    await page.goto(baseUrl + nodeEditUrl);
-    ckEditor = await page.locator('[aria-label="Editor editing area: main"]');
-    await ckEditor.fill(bodyText);
+    await page.goto(nodeEditUrl);
+    await editorPage.fillText(bodyText);
     // Timeouts necessary when running at full speed.
     await page.waitForTimeout(1000);
-    await page.getByRole('button', { name: 'Save' }).click();
+    await editorPage.save();
     await page.waitForTimeout(1000);
 
     //
     // Confirm content has changed.
     //
-    divContainer = await page.locator('.text-content');
-    const text = await divContainer.textContent();
-    await expect(text).toContain(bodyText);
+    await contentPage.expectText(bodyText);
 
     //
     // Delete the node.
@@ -107,42 +147,30 @@ test.describe('Node tests.', () => {
     // Log in with the administrator account.
     // You should change this to an account other than the administrator,
     // which has all rights.
-    await atkCommands.logInViaForm(page, context, qaUserAccounts.admin);
+    await atkCommands.logInViaForm(page, context, qaUsers.admin);
 
     //
     // Add an article.
     //
-    await page.goto(baseUrl + atkConfig.articleAddUrl);
+    await page.goto(atkConfig.articleAddUrl);
+    const editorPage = new EditorPage(page);
 
     // Fill in as many fields as you need here.
-    const titleTextField = await page.locator('input[name="title[0][value]"]');
-    await titleTextField.fill(`${testId}: A Title`);
-    let ckEditor = await page.locator('[aria-label="Editor editing area: main"]');
+    await editorPage.fillTitle(`${testId}: A Title`);
 
     // Upload image.
-    await page.setInputFiles('#edit-field-image-0-upload', image1Filepath);
-    const altField = page.locator('input[name="field_image[0][alt]"]');
-    await altField.fill(`${testId}: ${uniqueToken1}`);
+    await editorPage.uploadImage(image1Filepath, `${testId}: ${uniqueToken1}`);
 
     // Fill body.
-    await ckEditor.fill(bodyText);
-    await page.getByRole('button', { name: 'Save' }).click();
+    await editorPage.fillText(bodyText);
+    await editorPage.save();
 
     //
     // Confirm content appears.
     //
-    let divContainer = await page.textContent('.text-content');
-    await expect(divContainer).toContain(bodyText);
-
-    // Extract the nid placed in the body class by this hook:
-    // automated_testing_kit.module:automated_testing_kit_preprocess_html().
-    // Wait for the page to load
-    await page.waitForLoadState('domcontentloaded');
-    const bodyClass = await page.evaluate(() => document.body.className);
-    const match = bodyClass.match(/node-nid-(\d+)/);
-
-    // Get the nid.
-    const nid = parseInt(match[1], 10);
+    const contentPage = new ContentPage(page);
+    await contentPage.expectText(bodyText);
+    const nid = await contentPage.getNid();
 
     //
     // Update the node.
@@ -151,20 +179,17 @@ test.describe('Node tests.', () => {
 
     bodyText = 'Ut eget ex vitae nibh dapibus vulputate ut id lacus.';
 
-    await page.goto(baseUrl + nodeEditUrl);
-    ckEditor = await page.locator('[aria-label="Editor editing area: main"]');
-    await ckEditor.fill(bodyText);
+    await page.goto(nodeEditUrl);
+    await editorPage.fillText(bodyText);
     // Timeouts necessary when running at full speed.
     await page.waitForTimeout(1000);
-    await page.getByRole('button', { name: 'Save' }).click();
+    await editorPage.save();
     await page.waitForTimeout(1000);
 
     //
     // Confirm content has changed.
     //
-    divContainer = await page.locator('.text-content');
-    const text = await divContainer.textContent();
-    await expect(text).toContain(bodyText);
+    await contentPage.expectText(bodyText);
 
     //
     // Delete the node.

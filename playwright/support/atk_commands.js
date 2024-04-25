@@ -110,9 +110,7 @@ async function deleteNodeViaUiWithNid(page, context, nid) {
   await page.getByRole('button', { name: 'Delete' }).click()
 
   // Adjust this confirmation to your needs.
-  const statusLocator = await page.locator('.messages--status')
-  const text = await statusLocator.textContent()
-  await expect(text).toContain('has been deleted.');
+  await expectMessage(page, 'has been deleted.');
 }
 
 /**
