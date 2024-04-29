@@ -33,6 +33,9 @@ test.describe('Contact Us tests.', () => {
     const testId = '(ATK-PW-1050)';
     const subjectLine = `${testId} ${uniqueToken}`;
 
+    // Add permission
+    atkCommands.addRolePerm('anonymous user', 'access site-wide contact form');
+
     // Begin registration.
     await page.goto(atkConfig.contactUsUrl);
 

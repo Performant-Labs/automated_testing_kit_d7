@@ -34,6 +34,7 @@ module.exports = {
   logInViaUli,
   logOutViaUi,
   setDrupalConfiguration,
+  addRolePerm,
   expectMessage,
   checkEmail
 }
@@ -386,6 +387,17 @@ function setDrupalConfiguration(objectName, key, value) {
   const cmd = `cset -y ${objectName} ${key} ${value}`
 
   execDrush(cmd)
+}
+
+/**
+ * Add specified permission to the role
+ * @param role {string}
+ * @param perm {string}
+ */
+function addRolePerm(role, perm) {
+  const cmd = `role-add-perm '${role}' '${perm}'`;
+
+  execDrush(cmd);
 }
 
 /**
