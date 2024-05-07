@@ -13,7 +13,7 @@
 function automated_testing_kit_preprocess_html(&$variables) {
   $node = menu_get_object();
 
-  if ($node && $node->entity_type == 'node') {
+  if ($node && (node_type_get_type($node)->base == 'node_content')) {
     $variables['attributes']['class'][] = 'node-type-' . $node->type;
     $variables['attributes']['class'][] = 'node-nid-' . $node->nid;
   }
