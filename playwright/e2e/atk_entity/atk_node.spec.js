@@ -69,7 +69,7 @@ class ContentPage {
   async getNid() {
     // Extract the nid placed in the body class by this hook:
     // automated_testing_kit.module:automated_testing_kit_preprocess_html().
-    // Wait for the page to load
+    // Wait for the page to load.
     await this.page.waitForLoadState('domcontentloaded');
     const bodyClass = await this.page.evaluate(() => document.body.className);
     const match = bodyClass.match(/page-node-(\d+)/);
