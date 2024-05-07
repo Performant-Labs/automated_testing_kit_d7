@@ -40,7 +40,7 @@ test.describe('Page error tests.', () => {
     const testId = 'ATK-PW-1060'; // eslint-disable-line no-unused-vars
     const badAnonymousUrl = 'admin';
 
-    await atkCommands.logOutViaUi(page, context);
+    await atkCommands.logOutViaUi(page);
     await page.goto(baseUrl + badAnonymousUrl);
 
     // Should see the 403 message.
@@ -61,7 +61,7 @@ test.describe('Page error tests.', () => {
     const badAnonymousUrl = `${testId}-BadAnonymousPage-${randomString}`;
     const badAuthenticatedUrl = `${testId}-BadAuthenticatedPage-${randomString}`;
 
-    await atkCommands.logOutViaUi(page, context);
+    await atkCommands.logOutViaUi(page);
     await page.goto(baseUrl + `${badAnonymousUrl}`);
 
     // Should see the 404 message.

@@ -9,6 +9,15 @@
 /* eslint-disable no-prototype-builtins */
 /* eslint-disable import/first */
 
+// Set up Playwright.
+import { expect } from '@playwright/test'
+import playwrightConfig from '../../playwright.config.js'
+import { execSync } from 'child_process'
+
+// Fetch the Automated Testing Kit config, which is in the project root.
+import atkConfig from '../../playwright.atk.config.js'
+import etherealUser from '../data/etherealUser.json';
+
 module.exports = {
   createUserWithUserObject,
   deleteNodeViaUiWithNid,
@@ -21,20 +30,16 @@ module.exports = {
   getUidWithEmail,
   getUsernameWithEmail,
   logInViaForm,
+  checkLogIn,
   logInViaUli,
   logOutViaUi,
-  setDrupalConfiguration
+  setDrupalConfiguration,
+  addRolePerm,
+  expectMessage,
+  checkEmail
 }
 
-// Set up Playwright.
-import { expect } from '@playwright/test'
-import playwrightConfig from '../../playwright.config.js'
 const baseUrl = playwrightConfig.use.baseURL;
-
-import { execSync } from 'child_process'
-
-// Fetch the Automated Testing Kit config, which is in the project root.
-import atkConfig from '../../playwright.atk.config.js'
 
 /**
  * Create a user via Drush using a JSON user object.
@@ -49,7 +54,7 @@ import atkConfig from '../../playwright.atk.config.js'
  * @param {array} args Array of string arguments to pass to Drush.
  * @param {array} options Array of string options to pass to Drush.
  */
-function createUserWithUserObject (user, roles = [], args = [], options = []) {
+function createUserWithUserObject(user, roles = [], args = [], options = []) {
   let cmd = 'user:create '
 
   if ((args === undefined) || !Array.isArray(args)) {
@@ -98,19 +103,15 @@ function createUserWithUserObject (user, roles = [], args = [], options = []) {
  * @param {object} context Context object.
  * @param {int} nid Node ID of item to delete.
  */
-async function deleteNodeViaUiWithNid (page, context, nid) {
+async function deleteNodeViaUiWithNid(page, context, nid) {
   const nodeDeleteUrl = atkConfig.nodeDeleteUrl.replace("{nid}", nid)
 
   // Delete a node page.
-  await page.goto(baseUrl + nodeDeleteUrl)
+  await page.goto(nodeDeleteUrl)
   await page.getByRole('button', { name: 'Delete' }).click()
 
   // Adjust this confirmation to your needs.
-  const statusLocator = await page.locator('.messages--status')
-  const text = await statusLocator.textContent()
-  await expect(text).toContain('has been deleted.');
-
-  return
+  await expectMessage(page, 'has been deleted.');
 }
 
 /**
@@ -119,41 +120,24 @@ async function deleteNodeViaUiWithNid (page, context, nid) {
  * @param {string} email Email of account to delete.
  * @param {[string]} options Array of string options.
  */
-function deleteUserWithEmail (email, options = []) {
-  if ((options === undefined) || !Array.isArray(options)) {
-    console.log('deleteUserWithEmail: Pass an array for options.')
+function deleteUserWithEmail(email, options = []) {
+  const name = getUsernameWithEmail(email);
+  if (name) {
+    deleteUserWithUserName(name, options);
   }
-
-  // TODO: --mail doesn't work without an argument.
-  // See issue filed with Drush:
-  // https://github.com/drush-ops/drush/issues/5652
-  //
-  // When that's corrected, remove 'dummy.'
-  // Workaround is to provide a username when giving the email.
-  // This has been fixed but only in the latest version (12.x).
-  // Wait until 2025 before removing "dummy" below.
-  options.push(`--mail=${email}`)
-  const cmd = 'user:cancel -y dummy '
-
-  execDrush(cmd, [], options)
 }
 
 /**
  * Delete user via Drush given a Drupal UID.
  *
- * @param {integer} uid Drupal uid of user to delete.
+ * @param {number} uid Drupal uid of user to delete.
+ * @param options {string[]} Array of string options
  */
-function deleteUserWithUid (uid, options = []) {
-  if ((options === undefined) || !Array.isArray(options)) {
-    console.log('deleteUserWithUid: Pass an array for options.')
+function deleteUserWithUid(uid, options = []) {
+  const name = getUsernameWithEmail(uid);
+  if (name) {
+    deleteUserWithUserName(name, options);
   }
-
-  options.push(`--uid=${uid}`)
-  options.push('--delete-content')
-  // As of Drush 11.6 --uid doesn't work without a name argument.
-  const cmd = 'user:cancel -y dummy '
-
-  execDrush(cmd, [], options)
 }
 
 /**
@@ -163,8 +147,8 @@ function deleteUserWithUid (uid, options = []) {
  * @param {array} args Array of string arguments to pass to Drush.
  * @param {array} options Array of string options to pass to Drush.
  */
-function deleteUserWithUserName (userName, args = [], options = []) {
-  const cmd = `user:cancel -y  '${userName}' `
+function deleteUserWithUserName(userName, args = [], options = []) {
+  const cmd = `user:cancel -y '${userName}' `
 
   if ((args === undefined) || !Array.isArray(args)) {
     console.log('deleteUserWithUserName: Pass an array for args.')
@@ -189,9 +173,11 @@ function deleteUserWithUserName (userName, args = [], options = []) {
  * @param {string} cmd The Drush command.
  * @param {array} args Array of string arguments to pass to Drush.
  * @param {array} options Array of string options to pass to Drush.
+ * @param throwOnError {boolean} if process exit with non-zero code,
+ * test must fail
  * @returns {string} The output from executing the command in a shell.
  */
-function execDrush (cmd, args = [], options = []) {
+function execDrush(cmd, args = [], options = [], throwOnError = true) {
   let output = ''
 
   if ((args === undefined) || !Array.isArray(args)) {
@@ -220,6 +206,9 @@ function execDrush (cmd, args = [], options = []) {
       console.log('execDrush result: ' + output)
     } catch (error) {
       console.log(`execDrush error: ${error.message}`)
+      if (throwOnError) {
+        throw error
+      }
     }
   }
 
@@ -233,7 +222,7 @@ function execDrush (cmd, args = [], options = []) {
  * @param {string} cmd Drush command; execDrush() contructs this with args and options.
  * @returns {string} The output from executing the command in a shell.
  */
-function execPantheonDrush (cmd) {
+function execPantheonDrush(cmd) {
   let result
 
   // Construct the Terminus command. Remove "drush" from argument.
@@ -256,7 +245,7 @@ function execPantheonDrush (cmd) {
  *
  * @returns {string} The Drush command i.e 'lando drush ', etc.
  */
-function getDrushAlias () {
+function getDrushAlias() {
   let cmd = ''
 
   // Drush to Pantheon requires Terminus.
@@ -270,19 +259,38 @@ function getDrushAlias () {
 }
 
 /**
+ * Get user as an object by user e-mail.
+ * @param email Email of the account (actually, can be also uid or name).
+ * @return {any}
+ */
+function getUserJsonWithEmail(email) {
+  const cmd = `user:information ${email} --format=json`
+
+  let result;
+  try {
+    result = execDrush(cmd);
+  } catch (e) {
+    if (e.toString().indexOf('UserListException') !== -1) {
+      // User just not found.
+      return undefined;
+    }
+    // Some other error that we must be aware of.
+    throw e;
+  }
+  if (result) {
+    return JSON.parse(result)
+  }
+}
+
+/**
  * Return the UID of a user given an email.
  *
  * @param {string} email Email of the account.
- * @returns {integer} UID of user.
+ * @returns {number} UID of user.
  */
-function getUidWithEmail (email) {
-  const cmd = `user:info --mail=${email} --format=json`
-
-  const result = execDrush(cmd)
-  if (!result === '') {
-    // Fetch uid from json object, if present.
-    const userJson = JSON.parse(result)
-
+function getUidWithEmail(email) {
+  const userJson = getUserJsonWithEmail(email)
+  if (userJson) {
     for (const key in userJson) {
       if (userJson[key].hasOwnProperty('uid')) {
         const uidValue = userJson[key].uid
@@ -295,27 +303,18 @@ function getUidWithEmail (email) {
 /**
  * Return the Username of a user given an email.
  *
- * @param {string} email Email of the account.
+ * @param {string|number} email Email of the account.
  * @returns {string} Username of user.
  */
-function getUsernameWithEmail (email) {
-  const cmd = `user:info --mail=${email} --format=json`
-  const result = execDrush(cmd)
-
-  // Fetch uid from json object, if present.
-  let nameValue = null
-  if (!result === '') {
-    // Expecting a string in json form.
-    const userJson = JSON.parse(result)
-
+function getUsernameWithEmail(email) {
+  const userJson = getUserJsonWithEmail(email)
+  if (userJson) {
     for (const key in userJson) {
       if (userJson[key].hasOwnProperty('name')) {
-        nameValue = userJson[key].name
-        break // Exit the loop once the mail property is found.
+        return userJson[key].name
       }
     }
   }
-  return nameValue
 }
 
 /**
@@ -325,16 +324,13 @@ function getUsernameWithEmail (email) {
  * @param {object} context Context object.
  * @param {object} account JSON object see structure of qaUserAccounts.json.
  */
-async function logInViaForm (page, context, account) {
+async function logInViaForm(page, context, account) {
   await context.clearCookies()
-  await page.goto(baseUrl + atkConfig.logInUrl)
+  await page.goto(atkConfig.logInUrl)
   await page.getByLabel('Username').fill(account.userName)
   await page.getByLabel('Password').fill(account.userPassword)
   await page.getByRole('button', { name: 'Log in' }).click()
-
-  await page.waitForLoadState('domcontentloaded');
-  const textContent = await page.textContent('body')
-  await expect(textContent).toContain('Member for')
+  await checkLogIn(page);
 
   // Keep the stored state in the support directory.
   const authFile = atkConfig.supportDir + '/loginAuth.json'
@@ -342,17 +338,26 @@ async function logInViaForm (page, context, account) {
 }
 
 /**
+ * Check the logged in state of the page.
+ * @param page Page object.
+ */
+async function checkLogIn(page) {
+  await page.waitForLoadState('domcontentloaded');
+  const textContent = await page.textContent('body')
+  await expect(textContent).toContain('Member for')
+}
+
+/**
  * Log in with user:login given a user id.
  *
  * @param {object} page Page object.
- * @param {object} context Context object.
- * @param {integer} uid Drupal user id.
+ * @param {number} uid Drupal user id.
  */
-async function logInViaUli (page, context, uid) {
+async function logInViaUli(page, uid) {
   let cmd = ''
   let url = ''
 
-  await logOutViaUi(page, context)
+  await logOutViaUi(page)
 
   if (uid === undefined) uid = 1
 
@@ -366,12 +371,9 @@ async function logInViaUli (page, context, uid) {
  * Log out user via the UI.
  *
  * @param {object} page Page object.
- * @param {object} context Context object.
  */
-async function logOutViaUi (page, context) {
-  const cmd = baseUrl + atkConfig.logOutUrl
-
-  await page.goto(cmd)
+async function logOutViaUi(page) {
+  await page.goto(atkConfig.logOutUrl)
 }
 
 /**
@@ -381,8 +383,69 @@ async function logOutViaUi (page, context) {
  * @param {string} key Name of configuration setting.
  * @param {*} value Value of configuration setting.
  */
-function setDrupalConfiguration (objectName, key, value) {
+function setDrupalConfiguration(objectName, key, value) {
   const cmd = `cset -y ${objectName} ${key} ${value}`
 
   execDrush(cmd)
+}
+
+/**
+ * Add specified permission to the role
+ * @param role {string}
+ * @param perm {string}
+ */
+function addRolePerm(role, perm) {
+  const cmd = `role-add-perm '${role}' '${perm}'`;
+
+  execDrush(cmd);
+}
+
+/**
+ * Assert presence of a message with given text on the page.
+ * @param page Playwright Page object.
+ * @param text Text, which the message box should partially match.
+ * @return {Promise<void>}
+ */
+async function expectMessage(page, text) {
+  // The status box needs a moment to appear.
+  const message = await page.waitForSelector('.messages.status');
+
+  // Should see the thank-you message.
+  expect(await message.textContent()).toContain(text);
+}
+
+/**
+ * Verify that email is sent to the given recipient with expected subject.
+ * @param page Playwright page object.
+ * @param userEmail Email address of the recipient. If null, only subject is verified.
+ * @param subjectValue Expected subject.
+ * @return {Promise<void>}
+ */
+async function checkEmail(page, userEmail, subjectValue) {
+  const etherealUrl = 'https://ethereal.email';
+  await page.goto(`${etherealUrl}/login`);
+  await page.getByPlaceholder('Enter email').fill(etherealUser.userEmail);
+  await page.getByPlaceholder('Password').fill(etherealUser.userPassword);
+  await page.getByRole('button', { name: 'Log in' }).click();
+
+  let textContent;
+  textContent = await page.textContent('body');
+  expect(textContent).toContain(`Logged in as ${etherealUser.userEmail}`);
+
+  await page.goto(`${etherealUrl}/messages`);
+
+  textContent = await page.textContent('body');
+  expect(textContent).toContain(`Messages for ${etherealUser.userEmail}`);
+
+  let expectedValue;
+  // There may be two emails, one for the user and one for the admin.
+  // Look for email in the first column and the username + userCode generated above
+  // in the second column; that's the user email.
+  if (!userEmail) {
+    expectedValue = subjectValue;
+  } else {
+    const toValue = `To: <${userEmail}>`;
+    expectedValue = `${toValue} ${subjectValue}`;
+  }
+  await expect(page.getByRole('row', { name: expectedValue })).toBeVisible();
 }

@@ -14,10 +14,6 @@ import * as atkUtilities from '../support/atk_utilities';
 // Set up Playwright.
 const { test, expect } = require('@playwright/test');
 
-import playwrightConfig from '../../playwright.config';
-
-const baseUrl = playwrightConfig.use.baseURL;
-
 // Import ATK configuration.
 import atkConfig from '../../playwright.atk.config';
 
@@ -25,6 +21,40 @@ import atkConfig from '../../playwright.atk.config';
 // by QA Accounts. QA Accounts are created when the QA
 // Accounts module is enabled.
 import qaUserAccounts from '../data/qaUsers.json';
+
+class TermEditorPage {
+  constructor(page) {
+    this.page = page;
+    this.titleTextField = page.locator('#edit-name');
+    this.editorField = page.locator('#edit-description-value');
+    this.saveButton = page.getByRole('button', { name: 'Save' });
+    this.deleteButton = page.getByRole('button', { name: 'Delete' });
+  }
+
+  async fillTitle(title) {
+    await this.titleTextField.fill(title);
+  }
+
+  async fillText(text) {
+    await this.editorField.fill(text);
+  }
+
+  async save() {
+    await this.saveButton.click();
+  }
+
+  async delete() {
+    await this.deleteButton.click();
+  }
+
+  async expectConfirm() {
+    await expect(this.page.locator('h1')).toContainText('Are you sure');
+  }
+
+  async confirmDelete() {
+    await this.deleteButton.click();
+  }
+}
 
 test.describe('Entity tests.', () => {
   //
@@ -44,65 +74,47 @@ test.describe('Entity tests.', () => {
     //
     // Add a taxonomy node to the tags vocabulary.
     //
-    await page.goto(baseUrl + atkConfig.termAddUrl);
+    await page.goto(atkConfig.termAddUrl);
+    const termEditorPage = new TermEditorPage(page);
 
     // Fill in as many fields as you need here.
     // Below we provide a name and body.
-    const titleTextfield = await page.$('input[name="name[0][value]"]');
-    await titleTextfield.fill(termName);
-    let ckEditor = await page.$('[aria-label="Editor editing area: main"]');
-    await ckEditor.fill(bodyText);
-
-    await page.getByRole('button', { name: 'Save and go to list' }).click();
+    await termEditorPage.fillTitle(termName);
+    await termEditorPage.fillText(bodyText);
+    await termEditorPage.save();
 
     //
     // Fetch tag id from the list. The new term should be at
     // or near the top.
     //
-    await page.goto(`${baseUrl}admin/structure/taxonomy/manage/tags/overview`);
-    const termLocator = await page.getByText(termName); // eslint-disable-line no-unused-vars
+    await page.goto(atkConfig.termAddUrl.replace(/add/, ''));
 
-    // Get the tid from the edit button.
-    const link = await page.locator("//a[contains(text(),'Edit') and  starts-with(@href, '/taxonomy/term')]").first();
-    const workingUrl = await link.getAttribute('href');
-
-    // Extract the tid.
-    const regex = /\/taxonomy\/term\/(\d+)(?:\/([a-zA-Z0-9_-]+))?/;
-    const tidArray = workingUrl.match(regex);
-    const tid = tidArray[1];
-
-    const termEditUrl = atkConfig.termEditUrl.replace('{tid}', tid);
-    const termViewUrl = atkConfig.termViewUrl.replace('{tid}', tid);
-    const termDeleteUrl = atkConfig.termDeleteUrl.replace('{tid}', tid);
+    // Extract the links.
+    const termViewUrl = await page.locator(`//td/a[contains(.,"${termName}")]`).getAttribute('href');
+    const termEditUrl = await page.locator(`//td/a[contains(.,"${termName}")]/../../td/a[contains(.,"edit")]`).getAttribute('href');
 
     // Validate the body.
-    await page.goto(baseUrl + termViewUrl);
-    await expect(bodyText).toContain(bodyText);
-
-    // Extract the tid placed in the body class by this hook:
-    // automated_testing_kit.module:automated_testing_kit_preprocess_html().
-    const bodyClass = await page.evaluate(() => document.body.className); // eslint-disable-line no-unused-vars
+    await page.goto(termViewUrl);
+    await expect(await page.textContent('#content')).toContain(bodyText);
 
     //
     // Update the term.
     //
     bodyText = 'Ut eget ex vitae nibh dapibllus vulputate ut id lacus.';
 
-    await page.goto(baseUrl + termEditUrl);
-    ckEditor = await page.locator('[aria-label="Editor editing area: main"]');
-    await ckEditor.fill(bodyText);
-    const button = await page.locator('#edit-save'); // eslint-disable-line no-unused-vars
-    // await button.click( { force: true } )
-    await page.getByRole('button', { name: 'Save and go to list' }).click();
+    await page.goto(termEditUrl);
+    await termEditorPage.fillText(bodyText);
+    await termEditorPage.save();
 
     //
     // Delete the term.
     //
-    await page.goto(baseUrl + termDeleteUrl);
-    await page.getByRole('button', { name: 'Delete' }).click();
+    await page.goto(termEditUrl);
+    await termEditorPage.delete();
+    await termEditorPage.expectConfirm();
+    await termEditorPage.confirmDelete();
 
     // Adjust this confirmation to your needs.
-    const divContainer = await page.textContent('.messages--status');
-    await expect(divContainer).toContain('Deleted term');
+    await atkCommands.expectMessage(page, 'Deleted term');
   });
 });
