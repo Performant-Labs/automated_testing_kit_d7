@@ -23,7 +23,8 @@ test.describe('Page error tests.', () => {
   //
   // Validate that 403 page appears.
   // Assumes:
-  // Create a basic page with alias of "403-error-page" that has text content below.
+  // Create a basic page with alias of "403-error-page" that has the
+  // text "403 Error Page".
   // admin/config/system/site-information:Default 403 (access denied) page = /403-error-page
   //
   test('(ATK-PW-1060) Validate that 403 page appears. @ATK-PW-1060 @page-error @smoke', async ({ page, context }) => {
@@ -34,14 +35,16 @@ test.describe('Page error tests.', () => {
     await page.goto(badAnonymousUrl);
 
     // Should see the 403 message.
-    await expect(page.locator('body')).toContainText('403 Error Page');
+    let textContent = '';
+    textContent = await page.content();
+    expect(textContent).toContain('403 Error Page');
   });
 
-  // Validate that 403 page appears.
+  // Validate that 404 page appears.
   // Assumes:
-  // Create a basic page with the title of "403 error page" that has the
-  // text "403 error page".
-  // In admin/config/system/site-information, set Default 403 (access denied) page = /node/x
+  // Create a basic page with the alias of "404-error-page" that has the
+  // text "404 Error Page".
+  // In admin/config/system/site-information, set Default 404 (not found) page =  /404-error-page.
   // where x is the new node ID.
   test('(ATK-PW-1061) Validate that 404 page appears. @ATK-PW-1061 @page-error @smoke', async ({ page, context }) => {
     const testId = 'ATK-PW-1061';
@@ -53,12 +56,15 @@ test.describe('Page error tests.', () => {
     await page.goto(`${badAnonymousUrl}`);
 
     // Should see the 404 message.
-    await expect(page.locator('body')).toContainText('404 Error Page');
+    let textContent = '';
+    textContent = await page.content();
+    expect(textContent).toContain('ATK 404 Error Page');
 
     await atkCommands.logInViaForm(page, context, qaUserAccounts.authenticated);
     await page.goto(badAuthenticatedUrl);
 
     // Should see the 404 message.
-    await expect(page.locator('body')).toContainText('404 Error Page');
+    textContent = await page.content();
+    expect(textContent).toContain('ATK 404 Error Page');
   });
 });
