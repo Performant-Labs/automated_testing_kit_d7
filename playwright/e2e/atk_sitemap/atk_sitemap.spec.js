@@ -20,16 +20,10 @@ import playwrightConfig from '../../playwright.config';
 
 const baseUrl = playwrightConfig.use.baseURL;
 
-// Import ATK Configuration.
-import atkConfig from '../../playwright.atk.config'; // eslint-disable-line no-unused-vars
-
-// Import email settings for Ethereal fake SMTP service.
-import userEtherealAccount from '../data/etherealUser.json'; // eslint-disable-line no-unused-vars
-
 // Standard accounts that use user accounts created
 // by QA Accounts. QA Accounts are created when the QA
 // Accounts module is enabled.
-import qaUserAccounts from '../data/qaUsers.json';
+import qaUsers from '../data/qaUsers.json';
 
 test.describe('Sitemap tests.', () => {
   //
@@ -41,11 +35,10 @@ test.describe('Sitemap tests.', () => {
   //
   test('(ATK-PW-1070) Return # of sitemap files; fail if zero. @ATK-PW-1070 @xml-sitemap @smoke', async ({ page }) => {
     const testId = 'ATK-PW-1070'; // eslint-disable-line no-unused-vars
-    const fileName = 'sitemap.xml';
+    const fileName = '/sitemap.xml';
 
-    // Fetch file.
-    await page.goto(baseUrl);
-    const targetUrl = baseUrl + fileName;
+    // Construct an absolute URL of the sitemap.
+    const targetUrl = new URL(fileName, baseUrl).toString();
 
     // If there isn't at least one sitemap, this will fail.
     const response = await axios.get(targetUrl);
@@ -56,11 +49,20 @@ test.describe('Sitemap tests.', () => {
     const parser = new XMLParser();
     const jsonObj = parser.parse(response.data);
 
-    let sitemapCount = 1;
-    try {
-      // If there is just one sitemap file, this will fail.
-      sitemapCount = jsonObj.sitemapindex.sitemap.length;
-    } catch (error) {}
+    let sitemapCount;
+
+    if (jsonObj.urlset) {
+      // sitemap.xml is itself a sitemap file.
+      sitemapCount = 1;
+    } else {
+      const sitemap = jsonObj.sitemapindex.sitemap;
+      expect(sitemap).toBeTruthy();
+      if (!(sitemap instanceof Array)) {
+        sitemapCount = 1;
+      } else {
+        sitemapCount = sitemap.length;
+      }
+    }
 
     console.log(`Total sitemap files: ${sitemapCount}`); // eslint-disable-line no-console
   });
@@ -74,16 +76,16 @@ test.describe('Sitemap tests.', () => {
   //
   test('(ATK-PW-1071) Regenerate sitemap files. @ATK-PW-1071 @xml-sitemap @smoke', async ({ page, context }) => {
     const testId = 'ATK-PW-1071'; // eslint-disable-line no-unused-vars
-    const fileName = 'sitemap.xml'; // eslint-disable-line no-unused-vars
+    const fileName = '/sitemap.xml'; // eslint-disable-line no-unused-vars
 
     //
     // Step 1.
     //
-    await atkCommands.logInViaForm(page, context, qaUserAccounts.admin);
-    await page.goto(`${baseUrl}admin/config/search/xmlsitemap`);
+    await atkCommands.logInViaForm(page, context, qaUsers.admin);
+    await page.goto(`/admin/config/search/xmlsitemap`);
 
     // Find the row where the first column contains 'http://default'.
-    const row = await page.$('table tr:has(td:first-child:has-text("http://default"))');
+    const row = await page.$('.content table.sticky-enabled tbody tr:nth-child(1)');
 
     // Get the text content of the second column in that row
     const siteId = await row.$eval('td:nth-child(2)', (el) => el.textContent);
