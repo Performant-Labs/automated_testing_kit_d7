@@ -14,6 +14,9 @@ import * as atkUtilities from '../support/atk_utilities';
 // Set up Playwright.
 const { test, expect } = require('@playwright/test');
 
+import playwrightConfig from '../../playwright.config';
+const baseUrl = playwrightConfig.use.baseURL;
+
 // Import ATK configuration.
 import atkConfig from '../../playwright.atk.config';
 
@@ -41,11 +44,12 @@ test.describe('Media tests.', () => {
     //
     // Add an image.
     //
-    await page.goto(atkConfig.mediaAddUrl);
+    await page.goto(baseUrl + atkConfig.mediaAddUrl);
 
     // Upload image.
     await page.setInputFiles('[name="files[upload]"]', image1Filepath);
     await page.click('#edit-next');
+
     // Fill in as many fields as you need
     // if you've customized your media entity.
     const altField = page.locator('#edit-field-file-image-alt-text-und-0-value');
@@ -78,7 +82,7 @@ test.describe('Media tests.', () => {
     // Update the media.
     //
     const mediaEditUrl = atkConfig.mediaEditUrl.replace('{mid}', mid);
-    await page.goto(mediaEditUrl);
+    await page.goto(baseUrl + mediaEditUrl);
     await page.setInputFiles('[name="files[replace_upload]"]', image2Filepath);
     await altField.fill(`${testId}: ${uniqueToken2}`);
     await page.getByRole('button', { name: 'Save' }).click();
@@ -100,7 +104,7 @@ test.describe('Media tests.', () => {
     //
     // Delete the media entity.
     //
-    await page.goto(mediaEditUrl);
+    await page.goto(baseUrl + mediaEditUrl);
     await page.getByRole('button', { name: 'Delete' }).click();
     expect(await page.content()).toContain('Are you sure');
     await page.getByRole('button', { name: 'Delete' }).click();
