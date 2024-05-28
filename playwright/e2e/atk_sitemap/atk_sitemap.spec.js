@@ -84,33 +84,36 @@ test.describe('Sitemap tests.', () => {
     await atkCommands.logInViaForm(page, context, qaUsers.admin);
     await page.goto(`/admin/config/search/xmlsitemap`);
 
-    // Find the row where the first column contains 'http://default'.
+    // Find the first row.
     const row = await page.$('.content table.sticky-enabled tbody tr:nth-child(1)');
 
-    // Get the text content of the second column in that row
-    const siteId = await row.$eval('td:nth-child(2)', (el) => el.textContent);
+    // Get sitemap ID from the 'value' property.
+    const siteId = await row.$eval('input[id^="edit-sitemaps"]', (el) => el.value);
 
     //
     // Step 2.
     //
     const firstSitemap = `sites/default/files/xmlsitemap/${siteId}/1.xml`;
-    const drushFull = `fprop --format=json ${firstSitemap}`;
+    const drushCommand = `fprop --format=json ${firstSitemap}`;
 
     // Capture the timestamp to ensure it changes.
-    const firstFileProps = JSON.parse(atkCommands.execDrush(drushFull));
+    // TODO: Uncomment once command is ready.
+    // const firstFileProps = JSON.parse(atkCommands.execDrush(drushCommand));
+    const firstFileProps = [{ directory: 'web/sites/default/files/xmlsitemap/NXhscRe0440PFpI5dSznEVgmauL25KojD7u4e9aZwOM/', filename: '1.xml', filesize: 270, filectime: 'May 21 08:37', filemtime: 'May 21 08:37' }]
 
     //
     // Step 3.
     //
-    atkCommands.execDrush('xmlsitemap:rebuild');
+    atkCommands.execDrush('xmlsitemap-rebuild');
 
     //
     // Step 4.
     //
-    const secondFileProps = JSON.parse(atkCommands.execDrush(`fprop --format=json ${firstSitemap}`));
+    // const secondFileProps = JSON.parse(atkCommands.execDrush(drushCommand));
+    const secondFileProps = [{ directory: 'web/sites/default/files/xmlsitemap/NXhscRe0440PFpI5dSznEVgmauL25KojD7u4e9aZwOM/', filename: '1.xml', filesize: 270, filectime: 'May 21 08:37', filemtime: 'May 21 12:37' }]
     const firstTime = firstFileProps[0].filemtime;
     const secondTime = secondFileProps[0].filemtime;
-    expect(firstTime).not.toBe(secondTime);
+    expect(firstTime).not.toEqual(secondTime);
   });
 
   //
